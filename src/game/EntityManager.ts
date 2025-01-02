@@ -1,10 +1,10 @@
 import { Grid, TileType } from './Grid';
 import { Rockford } from './Rockford';
-import { Enemy } from './Enemy';
+import { BasicEnemy } from './enemies/types/BasicEnemy';
 
 export class EntityManager {
     private rockford: Rockford;
-    private enemies: Enemy[] = [];
+    private enemies: BasicEnemy[] = [];
     private isDead = false;
 
     constructor(
@@ -42,9 +42,9 @@ export class EntityManager {
 
     spawnEnemies() {
         this.enemies = [
-            new Enemy(this.ctx, 6, 11, this.grid, true),
-            new Enemy(this.ctx, 31, 6, this.grid, true),
-            new Enemy(this.ctx, 24, 16, this.grid, true)
+            new BasicEnemy(this.ctx, 6, 11, this.grid),
+            new BasicEnemy(this.ctx, 31, 6, this.grid),
+            new BasicEnemy(this.ctx, 24, 16, this.grid)
         ];
     }
 
