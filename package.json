@@ -1,0 +1,19 @@
+{
+  "name": "rockford",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "typescript": "^5.2.2",
+    "vite": "^5.0.8"
+  },
+  "dependencies": {
+    "@babylonjs/core": "^6.44.0",
+    "@babylonjs/gui": "^6.44.0"
+  }
+}
