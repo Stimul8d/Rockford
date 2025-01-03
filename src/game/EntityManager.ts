@@ -1,6 +1,8 @@
 import { Grid, TileType } from './Grid';
 import { Rockford } from './Rockford';
 import { BasicEnemy } from './enemies/types/BasicEnemy';
+import { PlayingState } from './states/PlayingState';
+import { StateManager } from './states/StateManager';
 
 export class EntityManager {
     private rockford: Rockford;
@@ -9,7 +11,8 @@ export class EntityManager {
 
     constructor(
         private ctx: CanvasRenderingContext2D,
-        private grid: Grid
+        private grid: Grid,
+        private stateManager: StateManager
     ) {}
 
     handleInput(e: KeyboardEvent) {
@@ -28,6 +31,12 @@ export class EntityManager {
 
         const tile = this.grid.getTileAt(newX, newY);
         if (tile !== TileType.Wall && tile !== TileType.Boulder) {
+            if (tile === TileType.Gem) {
+                const state = this.stateManager.getCurrentState();
+                if (state instanceof PlayingState) {
+                    state.collectGem();
+                }
+            }
             this.rockford.moveTo(newX, newY);
         }
     }

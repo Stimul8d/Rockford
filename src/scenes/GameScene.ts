@@ -1,21 +1,25 @@
-import { Grid, TileType } from "../game/Grid";
+import { Grid } from "../game/Grid";
 import { EntityManager } from "../game/EntityManager";
 import { LevelManager } from "../core/levels/LevelManager";
 import { PhysicsEngine } from "../game/PhysicsEngine";
+import { StateManager } from "../game/states/StateManager";
+import { StateType } from "../game/states/State";
+import { PlayingState } from "../game/states/PlayingState";
 
 export class GameScene {
     private grid: Grid;
     private entities: EntityManager;
     private levelManager: LevelManager;
     private physics: PhysicsEngine;
-    private lastUpdate = 0;
-    private readonly PHYSICS_STEP = 150;
+    private stateManager: StateManager;
     private currentLevelId = 1;
 
     constructor(canvas: HTMLCanvasElement) {
         const ctx = canvas.getContext('2d')!;
+        
+        this.stateManager = new StateManager();
         this.grid = new Grid(canvas);
-        this.entities = new EntityManager(ctx, this.grid);
+        this.entities = new EntityManager(ctx, this.grid, this.stateManager);
         this.levelManager = new LevelManager();
         this.physics = new PhysicsEngine();
         
@@ -28,39 +32,43 @@ export class GameScene {
         const level = this.levelManager.loadLevel(levelId);
         this.grid.loadLevel(level.layout);
         
+        this.stateManager.resetLevel();
         this.entities.reset();
-        this.entities.spawnPlayer(level.startPosition.x, level.startPosition.y, level.requiredGems);
+        this.entities.spawnPlayer(
+            level.startPosition.x, 
+            level.startPosition.y, 
+            level.requiredGems
+        );
         this.entities.spawnEnemies();
         
         this.currentLevelId = levelId;
+        this.stateManager.switchState(StateType.Playing);
     }
 
     private setupControls() {
         document.addEventListener('keydown', (e) => {
-            if (e.code === 'Space') {
-                if (this.entities.isPlayerDead()) {
-                    this.loadLevel(this.currentLevelId);
-                } else if (this.entities.getPlayerData().isComplete) {
-                    const nextLevel = this.levelManager.nextLevel();
-                    if (nextLevel) this.loadLevel(nextLevel.id);
-                }
-                return;
+            const state = this.stateManager.getCurrentState();
+            if (state instanceof PlayingState) {
+                this.entities.handleInput(e);
             }
-
-            this.entities.handleInput(e);
+            if (state) {
+                state.handleInput(e);
+            }
         });
     }
 
     private startGameLoop() {
         const update = (timestamp: number) => {
-            if (!this.entities.isPlayerDead() && 
-                !this.entities.getPlayerData().isComplete &&
-                timestamp - this.lastUpdate >= this.PHYSICS_STEP) {
-                
-                const playerData = this.entities.getPlayerData();
+            const state = this.stateManager.getCurrentState();
+            if (!state) return;
+
+            state.update(timestamp);
+
+            if (this.stateManager.getStateType() === StateType.Playing) {
+                const playerPos = this.entities.getPlayerData().position;
                 const { changes, playerCrushed } = this.physics.update(
                     this.grid.getTiles(),
-                    playerData.position
+                    playerPos
                 );
 
                 changes.forEach(change => {
@@ -68,56 +76,28 @@ export class GameScene {
                 });
 
                 if (playerCrushed || this.entities.update(timestamp)) {
-                    this.drawDeathScreen();
+                    this.stateManager.switchState(StateType.Dead);
                 }
 
-                this.lastUpdate = timestamp;
+                if (this.entities.getPlayerData().isComplete) {
+                    this.stateManager.switchState(StateType.Complete);
+                }
             }
 
-            this.draw();
+            this.draw(timestamp);
             requestAnimationFrame(update);
         };
+
         requestAnimationFrame(update);
     }
 
-    private draw() {
+    private draw(timestamp: number) {
         this.grid.draw();
         this.entities.draw();
-        this.drawGameState();
-    }
-
-    private drawGameState() {
-        const ctx = this.grid.getContext();
-        const playerData = this.entities.getPlayerData();
-        const level = this.levelManager.getCurrentLevel()!;
-
-        ctx.fillStyle = '#fff';
-        ctx.font = '20px monospace';
-        ctx.fillText(`Score: ${playerData.score}`, 10, 30);
-        ctx.fillText(`Gems: ${playerData.gems}/${level.requiredGems}`, 10, 60);
-
-        if (this.entities.isPlayerDead()) {
-            this.drawDeathScreen();
-        } else if (playerData.isComplete) {
-            this.drawVictoryScreen();
+        
+        const state = this.stateManager.getCurrentState();
+        if (state) {
+            state.draw(this.grid.getContext());
         }
-    }
-
-    private drawDeathScreen() {
-        const ctx = this.grid.getContext();
-        ctx.fillStyle = '#f00';
-        ctx.font = '40px monospace';
-        ctx.fillText('Crushed!', 300, 200);
-        ctx.font = '20px monospace';
-        ctx.fillText('Press Space to try again', 300, 240);
-    }
-
-    private drawVictoryScreen() {
-        const ctx = this.grid.getContext();
-        ctx.fillStyle = '#fff';
-        ctx.font = '40px monospace';
-        ctx.fillText('Level Complete!', 300, 200);
-        ctx.font = '20px monospace';
-        ctx.fillText('Press Space for next level', 300, 240);
     }
 }
